@@ -1,0 +1,102 @@
+Add these to XYPlotter.cpp
+
+includes:
+---------
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+#include "DigitalIoPin.h"
+#include "Fmutex.h"
+
+#include "ITM_write.h"
+#include "user_vcom.h"
+#include "UART_Task.h"
+
+
+declarations:
+-------------
+
+#define INPUT_QUEUE_LENGTH (5)
+#define ANSWER_QUEUE_LENGTH (5)
+#define UART_QUEUE_ELEMENT_LENGTH (RCV_BUFSIZE)
+
+extern QueueHandle_t inputQueue;
+extern QueueHandle_t answerQueue;
+
+Initializing function:
+----------------------
+
+/* Sets up system hardware */
+static void prvSetupHardware(void)
+{
+    SystemCoreClockUpdate();
+    Board_Init();
+
+    /* Initial LED0 state is off */
+    Board_LED_Set(0, false);
+    Board_LED_Set(1, false);
+    Board_LED_Set(2, false);
+
+    ITM_init();
+    ITM_write("Init complete\r\n");
+}
+
+Into main function:
+-------------------
+
+    inputQueue = xQueueCreate(INPUT_QUEUE_LENGTH, UART_QUEUE_ELEMENT_LENGTH);
+    answerQueue = xQueueCreate(ANSWER_QUEUE_LENGTH, UART_QUEUE_ELEMENT_LENGTH);
+
+    if (inputQueue == NULL || answerQueue == NULL ) {
+    	ITM_write("Error creating queues\r\n");
+    	while(1)
+    		;
+    }
+
+	xTaskCreate(UARTReaderTask, "Read UART",					// Required for UART
+	configMINIMAL_STACK_SIZE * 2, NULL, (tskIDLE_PRIORITY + 1UL),
+			(TaskHandle_t *) NULL);
+
+	xTaskCreate(UARTWriterTask, "Write UART",					// Required for UART
+	configMINIMAL_STACK_SIZE * 2, NULL, (tskIDLE_PRIORITY + 1UL),
+			(TaskHandle_t *) NULL);
+
+	xTaskCreate(cdc_task, "CDC",							// Required for UART
+	configMINIMAL_STACK_SIZE * 2, NULL, (tskIDLE_PRIORITY + 1UL),
+			(TaskHandle_t *) NULL);
+
+	vQueueAddToRegistry(inputQueue, "UART receive");
+	vQueueAddToRegistry(answerQueue, "UART send");
+
+
+
+Optional code, I used for testing, NOT necessary to add:
+--------------------------------------------------------
+
+void TestingTask(void *pvParameters) {
+	char ttext[RCV_BUFSIZE];
+	const char * M10answer = "M10 XY 500 500 0.00 0.00 A0 B0 H0 S80 U160 D90\r\rOK\r\n";
+	const char * M11answer = "M11 1 1 1 1\r\nOK\r\n";
+	const char * OKanswer = "OK\r\n";
+
+	vTaskDelay(100); /* wait until semaphores are created */
+
+	while(1) {
+		xQueueReceive(inputQueue, (void *) ttext, portMAX_DELAY);
+		vTaskDelay(pdMS_TO_TICKS(50));
+		if (ttext[0] == 'M' && ttext[1] == '1' && ttext[2] == '0') {
+			xQueueSend(answerQueue, (void *) M10answer, portMAX_DELAY);
+		} else if (ttext[0] == 'M' && ttext[1] == '1' && ttext[2] == '1') {
+			xQueueSend(answerQueue, (void *) M11answer, portMAX_DELAY);
+		} else {
+			xQueueSend(answerQueue, (void *) OKanswer, portMAX_DELAY);
+		}
+	}
+}
+
+Into main function:
+-------------------
+
+xTaskCreate(TestingTask, "Tester",							// Testing
+configMINIMAL_STACK_SIZE * 2, NULL, (tskIDLE_PRIORITY + 1UL), (TaskHandle_t *) NULL);
