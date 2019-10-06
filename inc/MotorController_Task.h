@@ -15,6 +15,7 @@ typedef enum {
 typedef struct {
 	Instruction_E cmd;
 	uint16_t arg1, arg2, arg3, arg4, arg5;
+	int arg6, arg7;
 	float Xcoord, Ycoord;
 } Instruction_t;
 

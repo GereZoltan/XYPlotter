@@ -13,8 +13,8 @@
 #include "ITM_write.h"
 #include "user_vcom.h"
 
-QueueHandle_t inputQueue;
-QueueHandle_t answerQueue;
+extern QueueHandle_t inputQueue;
+extern QueueHandle_t outputQueue;
 
 /**
  * UART_Task .h
@@ -33,7 +33,7 @@ void UARTWriterTask(void *pvParameters) {
 	vTaskDelay(100); /* wait until semaphores are created */
 
 	while (1) {
-		xQueueReceive(answerQueue, (void *) stext, portMAX_DELAY);
+		xQueueReceive(outputQueue, (void *) stext, portMAX_DELAY);
 		USB_send((uint8_t *) stext, strlen(stext));
 		ITM_write("SEND: ");
 		ITM_write(stext);
