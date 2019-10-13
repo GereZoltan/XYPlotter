@@ -27,7 +27,9 @@ public:
 
 	Servo(ServoType_E servoType);
 	virtual ~Servo();
-	void SetPosition(uint8_t position);
+	void SetPenPosition(uint8_t position);
+	void SetLaserPower(uint8_t power);
+	void SetLaser(bool state);
 };
 
 #endif /* SERVO_H_ */

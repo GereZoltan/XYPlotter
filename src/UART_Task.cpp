@@ -8,10 +8,11 @@
 #include <string.h>
 #include "FreeRTOS.h"
 #include "task.h"
-#include "semphr.h"
+#include "queue.h"
 
 #include "ITM_write.h"
 #include "user_vcom.h"
+#include "Globals.h"
 
 extern QueueHandle_t inputQueue;
 extern QueueHandle_t outputQueue;
@@ -35,7 +36,7 @@ void UARTWriterTask(void *pvParameters) {
 	while (1) {
 		xQueueReceive(outputQueue, (void *) stext, portMAX_DELAY);
 		USB_send((uint8_t *) stext, strlen(stext));
-		ITM_write("SEND: ");
+		ITM_write("UART SEND: ");
 		ITM_write(stext);
 		ITM_write("\r\n");
 	}	// End infinite loop
@@ -54,14 +55,15 @@ void UARTWriterTask(void *pvParameters) {
  */
 void UARTReaderTask(void *pvParameters) {
 	uint32_t readCharCount;
-	char rtext[RCV_BUFSIZE];
+	char rtext[RCV_BUFSIZE + 1];		// +1 therefore trailing \0 always fits
 
 	vTaskDelay(100); /* wait until semaphores are created */
 
 	while (1) {
 		readCharCount = USB_receive((uint8_t *) rtext, RCV_BUFSIZE);		// Function blocks until data is available.
+		rtext[readCharCount] = '\0';
 		xQueueSend(inputQueue, (void *) rtext, portMAX_DELAY);
-		ITM_write("RECEIVE: ");
+		ITM_write("UART RECEIVE: ");
 		ITM_write(rtext);
 		ITM_write("\r\n");
 	}	// End infinite loop

@@ -14,51 +14,46 @@
 #include <string>
 #include <cstdio>
 
-#include "MotorController_Task.h"
+#include "Globals.h"
+#include "ITM_write.h"
 
-/*
-	Queues:
+/**
+ * void GCodeParserTask (void *pvParameters)
+ * @brief	Parse received text to instruction
+ *	Used queues:
+ *	inputQueue (item type *char, item size 64)
+ *		UART task puts a received command in this queue and GCodeParser picks
+ *		it up for parsing.
+ *	instructionQueue (item type Instruction_t)
+ *		GCodeParser reports an updated parameter to Motor task.
+ *
+ */
 
-	inputQueue (item type *char, item size 64)
-		UART task puts a received command in this queue and GCodeParser picks
-		it up for parsing.
+extern QueueHandle_t inputQueue;
+extern QueueHandle_t instructionQueue;
 
-	outputQueue (item type *char, item size 64)
-		GCodeParser puts a reply in this queue and UART task picks it up for
-		sending.
-
-	instructionQueue (item type Instruction_t)
-		GCodeParser reports an updated parameter to Motor task.
-
-	motorReplyQueue (item type Instruction_t)
-		Motor task reports values required for M10 and M11 commands. Motor
-		task must send parameters to this queue when it receives M10 or M11
-		instruction.
-*/
-
-QueueHandle_t inputQueue;
-QueueHandle_t outputQueue;
-QueueHandle_t instructionQueue;
-QueueHandle_t motorReplyQueue;
 
 void GCodeParserTask (void *pvParameters) {
-	const unsigned int buffersize = 64;
-	char buffer[64];
+	char buffer[UART_QUEUE_ELEMENT_LENGTH];
 	Instruction_t instruction;
 
 	std::string word;
 	std::vector<std::string> words;
 
+	vTaskDelay(100); /* wait until semaphores are created */
+
+	ITM_write("GCodeParser started\r\n");
+
 	while(1) {
 		words.clear();
 		word.clear();
 
-//		instruction = { 0 };
-
 		xQueueReceive(inputQueue, buffer, portMAX_DELAY);
 
-		for (unsigned int c = 0; c < (strlen(buffer) + 1); c++) {
-			if (buffer[c] == ' ' || buffer[c] == 0) {
+		instruction.cmd = Instruction_E::EMPTY;
+
+		for (unsigned int c = 0; c < (strlen(buffer)); c++) {
+			if (buffer[c] == ' ' || buffer[c] == '\n') {
 				words.push_back(word);
 				word.clear();
 			} else {
@@ -75,8 +70,8 @@ void GCodeParserTask (void *pvParameters) {
 				// Must be 4 words (for example: G1 X85.14 Y117.29 A0)
 				good &= words.size() == 4;
 
-				// Last word must be "A0"
-				good &= words[words.size() - 1] == "A0";
+				// Last word must be "A0" or "A1"
+				good &= (words[words.size() - 1] == "A0") || (words[words.size() - 1] == "A1");
 
 				if (good) {
 					// Parse coordinates
@@ -102,6 +97,11 @@ void GCodeParserTask (void *pvParameters) {
 					instruction.cmd = Instruction_E::G1;
 					instruction.Xcoord = coordx;
 					instruction.Ycoord = coordy;
+					if (words[words.size() - 1] == "A0") {
+						instruction.arg1 = 0;
+					} else if (words[words.size() - 1] == "A1") {
+						instruction.arg1 = 1;
+					}
 
 					// Send instruction to Motor task
 
@@ -110,11 +110,11 @@ void GCodeParserTask (void *pvParameters) {
 					// Create reply for UART task
 					//   Contents: OK<CR><LF>
 
-					snprintf(buffer, buffersize, "OK\r\n");
+//					snprintf(buffer, UART_QUEUE_ELEMENT_LENGTH, "OK\r\n");
 
 					// Send reply to UART task
 
-					xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
+//					xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
 				}
 			} else if (words[0] == "G28") {
 				// G28: Go to origin
@@ -159,11 +159,11 @@ void GCodeParserTask (void *pvParameters) {
 						// Create reply for UART task
 						//   Contents: OK<CR><LF>
 
-						snprintf(buffer, buffersize, "OK\r\n");
+//						snprintf(buffer, UART_QUEUE_ELEMENT_LENGTH, "OK\r\n");
 
 						// Send reply to UART task
 
-						xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
+//						xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
 					}
 				}
 			} else if (words[0] == "M2") {
@@ -207,11 +207,11 @@ void GCodeParserTask (void *pvParameters) {
 					// Create reply for UART task
 					//   Contents: OK<CR><LF>
 
-					snprintf(buffer, buffersize, "OK\r\n");
+//					snprintf(buffer, UART_QUEUE_ELEMENT_LENGTH, "OK\r\n");
 
 					// Send reply to UART task
 
-					xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
+//					xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
 				}
 
 			} else if (words[0] == "M4") {
@@ -281,11 +281,11 @@ void GCodeParserTask (void *pvParameters) {
 
 					heighttext = words[3];
 					heighttext.erase(0, 1);
-					plotareax = std::stoi(heighttext);
+					plotareay = std::stoi(heighttext);
 
 					widthtext = words[4];
-					heighttext.erase(0, 1);
-					plotareay = std::stoi(widthtext);
+					widthtext.erase(0, 1);
+					plotareax = std::stoi(widthtext);
 
 					// Parse speed
 
@@ -306,8 +306,8 @@ void GCodeParserTask (void *pvParameters) {
 					instruction.cmd = Instruction_E::M5;
 					instruction.arg1 = (uint16_t)directionx;
 					instruction.arg2 = (uint16_t)directiony;
-					instruction.arg3 = (uint16_t)plotareax;
-					instruction.arg4 = (uint16_t)plotareay;
+					instruction.arg3 = (uint16_t)plotareay;
+					instruction.arg4 = (uint16_t)plotareax;
 					instruction.arg5 = (uint16_t)plotspeed;
 
 					// Send instruction to Motor task
@@ -318,11 +318,11 @@ void GCodeParserTask (void *pvParameters) {
 					// Create reply for UART task
 					//   Contents: OK<CR><LF>
 
-					snprintf(buffer, buffersize, "OK\r\n");
+//					snprintf(buffer, UART_QUEUE_ELEMENT_LENGTH, "OK\r\n");
 
 					// Send reply to UART task
 
-					xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
+//					xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
 				}
 
 			} else if (words[0] == "M10") {
@@ -336,40 +336,40 @@ void GCodeParserTask (void *pvParameters) {
 				// Get reply back from Motor task
 
 //				instruction = { 0 };
-				xQueueReceive(motorReplyQueue, &instruction, portMAX_DELAY);
+//				xQueueReceive(motorReplyQueue, &instruction, portMAX_DELAY);
 
 				// Create reply for UART task
 				//   For example:
 				//   M10 XY 380 310 0.00 0.00 A0 B0 H0 S80 U160 D90<CR><LF>OK<CR><LF>
 
-				int plotareax = (int)instruction.arg1; // Plot area X (mm)
-				int plotareay = (int)instruction.arg2; // Plot area Y (mm)
+//				int plotareax = (int)instruction.arg1; // Plot area X (mm)
+//				int plotareay = (int)instruction.arg2; // Plot area Y (mm)
 				
 				// false: clockwise
 				// true: counterclockwise
-				bool directionx = (bool)instruction.arg3; // Stepper X axis direction
-				bool directiony = (bool)instruction.arg4; // Stepper Y axis direction
+//				bool directionx = (bool)instruction.arg3; // Stepper X axis direction
+//				bool directiony = (bool)instruction.arg4; // Stepper Y axis direction
 
-				int plotspeed = (int)instruction.arg5; // Plotting speed
+//				int plotspeed = (int)instruction.arg5; // Plotting speed
 
-				int penup = (int)instruction.arg6; // Pen up (0 to 255)
-				int pendown = (int)instruction.arg7; // Pen down (0 to 255)
-
-				snprintf(buffer, buffersize,
-					"M10 XY %d %d %.2f %.2f A%d B%d H0 S%d U%d D%d\r\nOK\r\n",
-					plotareax,
-					plotareay,
-					(float)0.0f,
-					(float)0.0f,
-					(int)directionx,
-					(int)directiony,
-					plotspeed,
-					penup,
-					pendown);
+//				int penup = (int)instruction.arg6; // Pen up (0 to 255)
+//				int pendown = (int)instruction.arg7; // Pen down (0 to 255)
+//
+//				snprintf(buffer, UART_QUEUE_ELEMENT_LENGTH,
+//					"M10 XY %d %d %.2f %.2f A%d B%d H0 S%d U%d D%d\r\nOK\r\n",
+//					plotareax,
+//					plotareay,
+//					(float)0.0f,
+//					(float)0.0f,
+//					(int)directionx,
+//					(int)directiony,
+//					plotspeed,
+//					penup,
+//					pendown);
 
 				// Send reply to UART task
 
-				xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
+//				xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
 
 			} else if (words[0] == "M11") {
 				// M11: Limit switch status query
@@ -382,7 +382,7 @@ void GCodeParserTask (void *pvParameters) {
 				// Get reply back from Motor task
 
 //				instruction = { 0 };
-				xQueueReceive(motorReplyQueue, &instruction, portMAX_DELAY);
+//				xQueueReceive(motorReplyQueue, &instruction, portMAX_DELAY);
 
 				// Create reply for UART task
 				//   For example:
@@ -390,21 +390,21 @@ void GCodeParserTask (void *pvParameters) {
 
 				// false: switch closed
 				// true: switch open
-				bool l4 = (bool)instruction.arg4;
-				bool l3 = (bool)instruction.arg3;
-				bool l2 = (bool)instruction.arg2;
-				bool l1 = (bool)instruction.arg1;
-
-				snprintf(buffer, buffersize,
-					"M11 %d %d %d %d\r\nOK\r\n",
-					(int)l4,
-					(int)l3,
-					(int)l2,
-					(int)l1);
+//				bool l4 = (bool)instruction.arg4;
+//				bool l3 = (bool)instruction.arg3;
+//				bool l2 = (bool)instruction.arg2;
+//				bool l1 = (bool)instruction.arg1;
+//
+//				snprintf(buffer, UART_QUEUE_ELEMENT_LENGTH,
+//					"M11 %d %d %d %d\r\nOK\r\n",
+//					(int)l4,
+//					(int)l3,
+//					(int)l2,
+//					(int)l1);
 
 				// Send reply to UART task
 
-				xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
+//				xQueueSendToBack(outputQueue, buffer, portMAX_DELAY);
 			}
 		}
 	}
