@@ -24,10 +24,10 @@ DigitalIoPin * LimitswitchYNeg = NULL;
 DigitalIoPin * LimitswitchXPos = NULL;
 DigitalIoPin * LimitswitchXNeg = NULL;
 
-DigitalIoPin stepPinX(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
-DigitalIoPin dirPinX(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
-DigitalIoPin stepPinY(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
-DigitalIoPin dirPinY(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
+//DigitalIoPin stepPinX(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
+//DigitalIoPin dirPinX(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
+//DigitalIoPin stepPinY(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
+//DigitalIoPin dirPinY(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
 
 SemaphoreHandle_t limitSwitchSignal;
 
@@ -35,11 +35,11 @@ float changeRateX;					// Float-to-Tick conversion ratio
 float changeRateY;					// Float-to-Tick conversion ratio
 float currentPosX;
 float currentPosY;
-int32_t currentTickPosX;
-int32_t currentTickPosY;
+volatile int32_t currentTickPosX;
+volatile int32_t currentTickPosY;
 
-uint32_t MaxXAxisTick;					// Total number of steps on X-axis
-uint32_t MaxYAxisTick;					// Total number of steps on Y-axis
+int32_t MaxXAxisTick;					// Total number of steps on X-axis
+int32_t MaxYAxisTick;					// Total number of steps on Y-axis
 
 /*
  * Limit switches are grounding switches. They read one when the switch is open (= not at a limit).
@@ -52,6 +52,7 @@ uint32_t MaxYAxisTick;					// Total number of steps on Y-axis
  */
 
 void readLimitSwitchesTask(void *pvParameters) {
+	vTaskDelay(pdMS_TO_TICKS(1000));
 	while (1) {
 		if (limit1.read() || limit2.read() || limit3.read() || limit4.read()) {
 			xSemaphoreGive(limitSwitchSignal);
@@ -65,7 +66,10 @@ void readLimitSwitchesTask(void *pvParameters) {
 
 // Init X-axis
 void InitXAxis() {
-	int maxPos = 0;
+	DigitalIoPin stepPinX(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
+	DigitalIoPin dirPinX(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
+
+	int32_t maxPos = 0;
 
 	// Move to Positive direction - No counting
 	ITM_write("X+ dir");
@@ -98,7 +102,7 @@ void InitXAxis() {
 		stepPinX.write(FALSE);
 		vTaskDelay(1);
 	}
-	for (int i = 0; i < 50; i++) {
+	for (int i = 0; i < MARGIN; i++) {
 		stepPinX.write(TRUE);
 		vTaskDelay(1);
 		stepPinX.write(FALSE);
@@ -138,7 +142,7 @@ void InitXAxis() {
 		vTaskDelay(1);
 		maxPos--;
 	}
-	for (int i = 0; i < 50; i++) {
+	for (int i = 0; i < MARGIN; i++) {
 		stepPinX.write(TRUE);
 		vTaskDelay(1);
 		stepPinX.write(FALSE);
@@ -153,7 +157,10 @@ void InitXAxis() {
 
 // Init Y-axis
 void InitYAxis() {
-	int maxPos = 0;
+	DigitalIoPin stepPinY(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
+	DigitalIoPin dirPinY(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
+
+	int32_t maxPos = 0;
 
 	// Move to Positive direction - No counting
 	ITM_write("Y+ dir\r\n");
@@ -186,7 +193,7 @@ void InitYAxis() {
 		stepPinY.write(FALSE);
 		vTaskDelay(1);
 	}
-	for (int i = 0; i < 50; i++) {
+	for (int i = 0; i < MARGIN; i++) {
 		stepPinY.write(TRUE);
 		vTaskDelay(1);
 		stepPinY.write(FALSE);
@@ -226,7 +233,7 @@ void InitYAxis() {
 		vTaskDelay(1);
 		maxPos--;
 	}
-	for (int i = 0; i < 50; i++) {
+	for (int i = 0; i < MARGIN; i++) {
 		stepPinY.write(TRUE);
 		vTaskDelay(1);
 		stepPinY.write(FALSE);
@@ -260,21 +267,18 @@ void InitPlotter() {
 //	LimitswitchXPos = &limit3;
 //	LimitswitchXNeg = &limit4;
 
-	ITM_write("Init plotter\r\n");
+	ITM_write("Waiting for open limit switches...\r\n");
 
 	xSemaphoreTake(limitSwitchSignal, 0);
-	if ((xSemaphoreTake(limitSwitchSignal, 0)) == pdTRUE) {
-		ITM_write("Limit switch is pressed. Init can not continue!\r\n");
-		while(1) {
-		}
+	while ((xSemaphoreTake(limitSwitchSignal, 0)) == pdTRUE) {	// Wait for limit switches to open
 	}
 
-#if 0
-	InitXAxis();
-	InitYAxis();
-#endif
+	ITM_write("Init plotter...\r\n");
 
 #if 1
+	InitXAxis();
+	InitYAxis();
+#else
 	currentPosX = 250.0f;
 	currentTickPosX = 250;
 	MaxXAxisTick = 500;

@@ -119,10 +119,9 @@ void Servo::SetLaserPower(uint8_t power) {
 void Servo::SetLaser(bool state) {
 	// Laser
 	if (Servo::configuredSCTs & LASERBIT) {
-		// Turn Laser On/Off
-		if (state) {
+		if (state) {	// Turn Laser On
 			LPC_SCTLARGE0->CTRL_H &= ~(1 << 2);
-		} else {
+		} else {		// Turn Laser Off
 			LPC_SCTLARGE0->CTRL_H |= (1 << 2);
 			LPC_SCTLARGE0->CTRL_H |= (1 << 3);				// Clear counter_H
 		}

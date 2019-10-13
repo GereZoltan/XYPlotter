@@ -31,14 +31,14 @@ extern QueueHandle_t outputQueue;
 void UARTWriterTask(void *pvParameters) {
 	char stext[RCV_BUFSIZE];
 
-	vTaskDelay(100); /* wait until semaphores are created */
+	vTaskDelay(pdMS_TO_TICKS(1000)); /* wait until semaphores are created */
 
 	while (1) {
 		xQueueReceive(outputQueue, (void *) stext, portMAX_DELAY);
 		USB_send((uint8_t *) stext, strlen(stext));
-		ITM_write("UART SEND: ");
-		ITM_write(stext);
-		ITM_write("\r\n");
+//		ITM_write("UART SEND: ");
+//		ITM_write(stext);
+//		ITM_write("\r\n");
 	}	// End infinite loop
 }
 
@@ -57,14 +57,14 @@ void UARTReaderTask(void *pvParameters) {
 	uint32_t readCharCount;
 	char rtext[RCV_BUFSIZE + 1];		// +1 therefore trailing \0 always fits
 
-	vTaskDelay(100); /* wait until semaphores are created */
+	vTaskDelay(pdMS_TO_TICKS(1000)); /* wait until semaphores are created */
 
 	while (1) {
 		readCharCount = USB_receive((uint8_t *) rtext, RCV_BUFSIZE);		// Function blocks until data is available.
 		rtext[readCharCount] = '\0';
 		xQueueSend(inputQueue, (void *) rtext, portMAX_DELAY);
-		ITM_write("UART RECEIVE: ");
-		ITM_write(rtext);
-		ITM_write("\r\n");
+//		ITM_write("UART RECEIVE: ");
+//		ITM_write(rtext);
+//		ITM_write("\r\n");
 	}	// End infinite loop
 }

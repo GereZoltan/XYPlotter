@@ -40,7 +40,7 @@ void GCodeParserTask (void *pvParameters) {
 	std::string word;
 	std::vector<std::string> words;
 
-	vTaskDelay(100); /* wait until semaphores are created */
+	vTaskDelay(pdMS_TO_TICKS(1000)); /* wait until semaphores are created */
 
 	ITM_write("GCodeParser started\r\n");
 

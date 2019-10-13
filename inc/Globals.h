@@ -57,8 +57,8 @@ typedef struct {
 
 struct {
 	const char * plotterType = "XY";
-	bool stepperXDir = TRUE;
-	bool stepperYDir = TRUE;
+	bool stepperXDir = FALSE;
+	bool stepperYDir = FALSE;
 	// bool switchCheckY, switchCheckX;
 	// uint32_t yValue, xValue;
 	uint8_t penUp = 160;
@@ -78,21 +78,22 @@ extern DigitalIoPin * LimitswitchYNeg;
 extern DigitalIoPin * LimitswitchXPos;
 extern DigitalIoPin * LimitswitchXNeg;
 
-extern DigitalIoPin stepPinX;	// D10 - P0.27
-extern DigitalIoPin dirPinX;	// D11 - P0.28
-extern DigitalIoPin stepPinY;	// D8 - P0.24
-extern DigitalIoPin dirPinY;	// D9 - P1.0
+//extern DigitalIoPin stepPinX;	// D10 - P0.27
+//extern DigitalIoPin dirPinX;	// D11 - P0.28
+//extern DigitalIoPin stepPinY;	// D8 - P0.24
+//extern DigitalIoPin dirPinY;	// D9 - P1.0
 
 #define MaxPPS (1000)						// Max. pulse-per-second = 100% speed
+#define MARGIN (20)
 
 extern float changeRateX;					// Float-to-Tick conversion ratio
 extern float changeRateY;					// Float-to-Tick conversion ratio
 extern float currentPosX;
 extern float currentPosY;
-extern int32_t currentTickPosX;
-extern int32_t currentTickPosY;
+extern volatile int32_t currentTickPosX;
+extern volatile int32_t currentTickPosY;
 
-extern uint32_t MaxXAxisTick;				// Total number of steps on X-axis
-extern uint32_t MaxYAxisTick;				// Total number of steps on Y-axis
+extern int32_t MaxXAxisTick;				// Total number of steps on X-axis
+extern int32_t MaxYAxisTick;				// Total number of steps on Y-axis
 
 #endif /* GLOBALS_H_ */
