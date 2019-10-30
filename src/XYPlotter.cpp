@@ -60,9 +60,9 @@ static void prvSetupHardware(void) {
 	Board_Init();
 
 	/* Initial LED0 state is off */
-	Board_LED_Set(0, false);
-	Board_LED_Set(1, false);
-	Board_LED_Set(2, false);
+//	Board_LED_Set(0, false);
+//	Board_LED_Set(1, false);
+//	Board_LED_Set(2, false);
 
 	/* Initialize RITimer */
 	Chip_RIT_Init(LPC_RITIMER);
@@ -169,10 +169,10 @@ int main(void) {
 			configMINIMAL_STACK_SIZE * 4, NULL, (tskIDLE_PRIORITY + 1UL),
 			(TaskHandle_t *) NULL);
 
-	xTaskCreate(readLimitSwitchesTask,
-			"Read lmtSW",							// Monitor limit switches
-			configMINIMAL_STACK_SIZE * 2, NULL, (tskIDLE_PRIORITY + 1UL),
-			(TaskHandle_t *) NULL);
+//	xTaskCreate(readLimitSwitchesTask,
+//			"Read lmtSW",							// Monitor limit switches
+//			configMINIMAL_STACK_SIZE * 2, NULL, (tskIDLE_PRIORITY + 1UL),
+//			(TaskHandle_t *) NULL);
 
 	vQueueAddToRegistry(inputQueue, "UART receive");
 	vQueueAddToRegistry(outputQueue, "UART send");

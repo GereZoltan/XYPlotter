@@ -15,6 +15,10 @@
 #define PENBIT (1 << 0)
 #define LASERBIT (1 << 1)
 
+/*
+ * Servo class
+ * @brief    PWM capability to control RC servos and gradient power outputs
+ */
 class Servo {
 private:
 	void SCT_Init_L();

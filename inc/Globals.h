@@ -61,7 +61,7 @@ struct {
 	bool stepperYDir = FALSE;
 	// bool switchCheckY, switchCheckX;
 	// uint32_t yValue, xValue;
-	uint8_t penUp = 160;
+	uint8_t penUp = 30;
 	uint8_t penDown = 90;
 	uint8_t plottingSpeed = 80;
 	uint16_t plotAreaY = 500;
@@ -78,13 +78,13 @@ extern DigitalIoPin * LimitswitchYNeg;
 extern DigitalIoPin * LimitswitchXPos;
 extern DigitalIoPin * LimitswitchXNeg;
 
-//extern DigitalIoPin stepPinX;	// D10 - P0.27
-//extern DigitalIoPin dirPinX;	// D11 - P0.28
-//extern DigitalIoPin stepPinY;	// D8 - P0.24
-//extern DigitalIoPin dirPinY;	// D9 - P1.0
+//extern DigitalIoPin stepPinY;	// D10 - P0.27
+//extern DigitalIoPin dirPinY;	// D11 - P0.28
+//extern DigitalIoPin stepPinX;	// D8 - P0.24
+//extern DigitalIoPin dirPinX;	// D9 - P1.0
 
-#define MaxPPS (1000)						// Max. pulse-per-second = 100% speed
-#define MARGIN (20)
+#define MaxPPS (3000)						// Max. pulse-per-second = 100% speed
+#define MARGIN (200)
 
 extern float changeRateX;					// Float-to-Tick conversion ratio
 extern float changeRateY;					// Float-to-Tick conversion ratio

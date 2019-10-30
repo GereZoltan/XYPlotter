@@ -5,9 +5,11 @@
  *      Author: Zoltan Gere
  */
 
-#include <Servo.h>
+#include "Servo.h"
+#include "DigitalIoPin.h"
 
 uint8_t Servo::configuredSCTs = 0;
+DigitalIoPin laserPin(0, 12, DigitalIoPin::output, false);	// D12 - P0.12
 
 /*
  * Large SCT0 as two 16-bit timers
@@ -46,7 +48,7 @@ void Servo::SCT_Init_H() {
 	LPC_SCTLARGE0->CTRL_H |= ((72 - 1) << 5);		// Set Prescaler_H to 1MHz
 
 	LPC_SCTLARGE0->MATCHREL[0].H = 256 - 1;			// 1MHz / 3906Hz = 256
-	LPC_SCTLARGE0->MATCHREL[1].H = 0;				// 0 - 255
+	LPC_SCTLARGE0->MATCHREL[1].H = 255;				// 0 - 255
 
 	LPC_SCTLARGE0->EVENT[2].STATE = 0xFFFF;
 	LPC_SCTLARGE0->EVENT[2].CTRL = (1 << 4) | (1 << 12);
@@ -61,6 +63,11 @@ void Servo::SCT_Init_H() {
 //	LPC_SCTLARGE0->CTRL_H &= ~(1 << 2);
 }
 
+/*
+ * Constructor
+ * @brief	Initialize Pen / Laser
+ * Protected to init only once
+ */
 Servo::Servo(ServoType_E servoType) {
 	// Set up pen only once
 	if (((Servo::configuredSCTs & PENBIT) == 0)
@@ -91,6 +98,11 @@ Servo::~Servo() {
 	// TODO Auto-generated destructor stub
 }
 
+/*
+ * void Servo::SetPenPosition(uint8_t position)
+ * @brief	Translate 0-255 position to 1000-2000 microsecond
+ *			Write PWM output
+ */
 void Servo::SetPenPosition(uint8_t position) {
 	// Todo: translate 0-255 position to 1000-2000 usecond
 	uint32_t newPosition = (uint32_t) position;
@@ -108,6 +120,10 @@ void Servo::SetPenPosition(uint8_t position) {
 
 }
 
+/*
+ * void Servo::SetLaserPower(uint8_t power)
+ * @brief	Write PWM output
+ */
 void Servo::SetLaserPower(uint8_t power) {
 	// Laser
 	if (Servo::configuredSCTs & LASERBIT) {
@@ -116,14 +132,21 @@ void Servo::SetLaserPower(uint8_t power) {
 
 }
 
+/*
+ * void Servo::SetLaser(bool state)
+ * @brief	Turn On/Off Laser by turning On/Off PWM counter
+ */
 void Servo::SetLaser(bool state) {
+//	DigitalIoPin laserPin(0, 12, DigitalIoPin::output, false);	// D12 - P0.12
 	// Laser
 	if (Servo::configuredSCTs & LASERBIT) {
-		if (state) {	// Turn Laser On
-			LPC_SCTLARGE0->CTRL_H &= ~(1 << 2);
-		} else {		// Turn Laser Off
-			LPC_SCTLARGE0->CTRL_H |= (1 << 2);
+		if (state) {
+			LPC_SCTLARGE0->CTRL_H &= ~(1 << 2);				// Turn Laser On
+			laserPin.write(TRUE);
+		} else {
+			LPC_SCTLARGE0->CTRL_H |= (1 << 2);				// Turn Laser Off
 			LPC_SCTLARGE0->CTRL_H |= (1 << 3);				// Clear counter_H
+			laserPin.write(FALSE);
 		}
 	}
 }

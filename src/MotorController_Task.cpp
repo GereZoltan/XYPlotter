@@ -16,6 +16,8 @@
 #include "Globals.h"
 #include "Limits.h"
 
+#include <cmath>
+
 // Switch between interrupt drive motor control or simple but slow(er) motor control
 #define IRQPLOT
 
@@ -49,13 +51,15 @@ volatile int32_t diffX;
 volatile int32_t diffY;
 volatile int32_t err, err2;
 
-DigitalIoPin stepPinX(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
-DigitalIoPin dirPinX(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
-DigitalIoPin stepPinY(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
-DigitalIoPin dirPinY(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
+DigitalIoPin stepPinY(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
+DigitalIoPin dirPinY(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
+DigitalIoPin stepPinX(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
+DigitalIoPin dirPinX(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
 
 /**
  * @brief	RIT interrupt handler
+ * Calculate error and move stepper motor when necessary
+ * Keeps the record of plotter position
  * @return	Nothing
  */
 extern "C" {
@@ -111,7 +115,9 @@ void RIT_IRQHandler(void) {
 }
 }
 
-/*
+/**
+ * MotorController_Task .cpp
+ * <pre> void RIT_start(int32_t us);
  * The following function sets up RIT interrupt at given interval and waits until count RIT interrupts have
  * occurred. Note that the actual counting is performed by the ISR and this function just waits on the semaphore.
  *
@@ -145,10 +151,18 @@ void RIT_start(int32_t us) {
 	}
 }
 
+/**
+ * MotorController_Task .cpp
+ * <pre> void MoveToXY(float finishX, float finishY, bool relative);
+ * @brief Make coordinate conversion and call the interrupt set up function
+ *
+ * @return	No return value
+ */
 void MoveToXY(float finishX, float finishY, bool relative) {
 	float newPosX;
 	float newPosY;
 
+	// Process absolute/relative offsets
 	if (relative) {
 		newPosX = currentPosX + finishX;
 		newPosY = currentPosY + finishY;
@@ -157,38 +171,43 @@ void MoveToXY(float finishX, float finishY, bool relative) {
 		newPosY = finishY;
 	}
 
-	newTickPosX = (int32_t) (newPosX * changeRateX);
-	newTickPosY = (int32_t) (newPosY * changeRateY);
+	// Convert float difference to Tick/Pulse count
+	newTickPosX = (int32_t) round(newPosX * changeRateX);
+	newTickPosY = (int32_t) round(newPosY * changeRateX);
+//	newTickPosY = (int32_t) (newPosY * changeRateY);
 
+	// Actual difference in Ticks
 	diffX = newTickPosX - currentTickPosX;
 	diffY = newTickPosY - currentTickPosY;
 
-	if (diffX > 0) {						// Move to positive direction
+	if (diffX > 0) {						// X axis moves to positive direction
 		directionX = PlotterConfiguration.stepperXDir;
 		stepX = 1;
-	} else {
+	} else {								// X axis moves to negative direction
 		directionX = !PlotterConfiguration.stepperXDir;
 		diffX = diffX * -1;
 		stepX = -1;
 	}
 
-	if (diffY > 0) {						// Move to positive direction
+	if (diffY > 0) {						// Y axis moves to positive direction
 		directionY = PlotterConfiguration.stepperYDir;
 		diffY = diffY * -1;
 		stepY = 1;
-	} else {
+	} else {								// Y axis moves to negative direction
 		directionY = !PlotterConfiguration.stepperYDir;
 		stepY = -1;
 	}
 
 	err = diffX + diffY;
 
+	// Calculate interrupt frequency from stored plotter speed values
 	if (PlotterConfiguration.plottingSpeed == 0) {
 		RIT_start(500000 / ((int32_t) MaxPPS / 100));
 	} else {
 		RIT_start(500000 / ((int32_t) MaxPPS * PlotterConfiguration.plottingSpeed / 100));
 	}
 
+	// Save new positions
 	currentPosX = newPosX;
 	currentPosY = newPosY;
 	currentTickPosX = newTickPosX;
@@ -196,12 +215,20 @@ void MoveToXY(float finishX, float finishY, bool relative) {
 }
 
 #else
-
+/**
+ * MotorController_Task .cpp
+ * <pre> void MoveToXY(float finishX, float finishY, bool relative);
+ * @brief Make coordinate conversion
+ * Direct controll version
+ * No interrupt used
+ *
+ * @return	No return value
+ */
 void MoveToXY(float finishX, float finishY, bool relative) {
-	DigitalIoPin stepPinX(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
-	DigitalIoPin dirPinX(0, 28, DigitalIoPin::output, false);// D11 - P0.28
-	DigitalIoPin stepPinY(0, 24, DigitalIoPin::output, false);// D8 - P0.24
-	DigitalIoPin dirPinY(1, 0, DigitalIoPin::output, false);// D9 - P1.0
+	DigitalIoPin stepPinY(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
+	DigitalIoPin dirPinY(0, 28, DigitalIoPin::output, false);// D11 - P0.28
+	DigitalIoPin stepPinX(0, 24, DigitalIoPin::output, false);// D8 - P0.24
+	DigitalIoPin dirPinX(1, 0, DigitalIoPin::output, false);// D9 - P1.0
 
 	float newPosX;
 	float newPosY;
@@ -332,14 +359,14 @@ void MotorControllerTask(void *pvParameters) {
 	Instruction_t command;
 	Servo pen(Servo::pen);
 	Servo laser(Servo::laser);
-	laser.SetLaserPower(0);
+	laser.SetLaser(FALSE);
 	pen.SetPenPosition(PlotterConfiguration.penUp);
 
 #ifdef IRQPLOT
 	sbRIT = xSemaphoreCreateBinary();
 #endif
 
-	vTaskDelay(pdMS_TO_TICKS(1000)); /* wait until semaphores are created */
+	vTaskDelay(pdMS_TO_TICKS(2000)); /* wait until semaphores are created */
 	ITM_write("MotorControl started\r\n");
 
 	InitPlotter();	// Set up plotter initial position and find limit switches
@@ -348,7 +375,7 @@ void MotorControllerTask(void *pvParameters) {
 		xQueueReceive(instructionQueue, (void *) &command, portMAX_DELAY);
 //		ITM_write("MC Instruction received\r\n");
 		switch (command.cmd) {
-		case M10:
+		case M10:				// mDraw query plotter specifications
 			snprintf(msg, UART_QUEUE_ELEMENT_LENGTH,
 					"M10 %s %u %u 0.00 0.00 %s %s H0 S%u U%u D%u\r\rOK\r\n",
 					PlotterConfiguration.plotterType,
@@ -361,7 +388,7 @@ void MotorControllerTask(void *pvParameters) {
 			ITM_write(msg);
 			xQueueSend(outputQueue, (void * ) msg, portMAX_DELAY);
 			break;
-		case M11:
+		case M11:				// mDraw query limit switch statuses
 			snprintf(msg, UART_QUEUE_ELEMENT_LENGTH,
 					"M11 %u %u %u %u\r\nOK\r\n",
 					(uint8_t) !LimitswitchXNeg->read(),
@@ -380,7 +407,7 @@ void MotorControllerTask(void *pvParameters) {
 		case M1:				// Set pen position
 			//ITM_write("M1\r\n");
 			pen.SetPenPosition((uint8_t) command.arg1);
-			vTaskDelay(pdMS_TO_TICKS(250));	// Allow some time for the servo before continuing
+			vTaskDelay(pdMS_TO_TICKS(500));	// Allow some time for the servo before continuing
 			snprintf(msg, UART_QUEUE_ELEMENT_LENGTH, "Pen: %d\r\n",
 					command.arg1);
 			ITM_write(msg);
@@ -423,8 +450,8 @@ void MotorControllerTask(void *pvParameters) {
 		case G1:				// Go to position
 			//ITM_write("G1\r\n");
 			MoveToXY(command.Xcoord, command.Ycoord, (bool) command.arg1);// arg1 0=absolute 1=relative
-			snprintf(msg, UART_QUEUE_ELEMENT_LENGTH, "X: %ld  Y: %ld\r\n",
-					currentTickPosX, currentTickPosY);
+			snprintf(msg, UART_QUEUE_ELEMENT_LENGTH, "X: %ld  Y: %ld End: %f %f\r\n",
+					currentTickPosX, currentTickPosY, command.Xcoord, command.Ycoord);
 			ITM_write(msg);
 			xQueueSend(outputQueue, (void * ) OKanswer, portMAX_DELAY);
 			break;

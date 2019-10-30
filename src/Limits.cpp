@@ -24,10 +24,10 @@ DigitalIoPin * LimitswitchYNeg = NULL;
 DigitalIoPin * LimitswitchXPos = NULL;
 DigitalIoPin * LimitswitchXNeg = NULL;
 
-//DigitalIoPin stepPinX(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
-//DigitalIoPin dirPinX(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
-//DigitalIoPin stepPinY(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
-//DigitalIoPin dirPinY(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
+//DigitalIoPin stepPinY(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
+//DigitalIoPin dirPinY(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
+//DigitalIoPin stepPinX(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
+//DigitalIoPin dirPinX(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
 
 SemaphoreHandle_t limitSwitchSignal;
 
@@ -50,36 +50,36 @@ int32_t MaxYAxisTick;					// Total number of steps on Y-axis
  *
  * Enforcement of limits (=always stop at switch, never hit an edge)
  */
-
-void readLimitSwitchesTask(void *pvParameters) {
-	vTaskDelay(pdMS_TO_TICKS(1000));
-	while (1) {
-		if (limit1.read() || limit2.read() || limit3.read() || limit4.read()) {
-			xSemaphoreGive(limitSwitchSignal);
-			Board_LED_Set(3, TRUE);
-		} else {
-			Board_LED_Set(3, FALSE);
-		}
-		vTaskDelay(pdMS_TO_TICKS(1));
-	}
-}
+//void readLimitSwitchesTask(void *pvParameters) {
+//	vTaskDelay(pdMS_TO_TICKS(1000));
+//	while (1) {
+//		if (limit1.read() || limit2.read() || limit3.read() || limit4.read()) {
+//			xSemaphoreGive(limitSwitchSignal);
+//		}
+//		vTaskDelay(pdMS_TO_TICKS(1));
+//	}
+//}
 
 // Init X-axis
 void InitXAxis() {
-	DigitalIoPin stepPinX(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
-	DigitalIoPin dirPinX(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
+	int wait = 1;
+	uint32_t t = 1;
+	DigitalIoPin stepPinX(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
+	DigitalIoPin dirPinX(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
 
 	int32_t maxPos = 0;
 
 	// Move to Positive direction - No counting
 	ITM_write("X+ dir");
 	dirPinX.write(PlotterConfiguration.stepperXDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) != pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while (!(limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
+//	while ((xSemaphoreTake(limitSwitchSignal, 0)) != pdTRUE) {
 		stepPinX.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinX.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 	}
 	// X+ switch reached
 	ITM_write(".");
@@ -95,29 +95,34 @@ void InitXAxis() {
 	// Move away from switch
 	ITM_write(".\r\n");
 	dirPinX.write(!PlotterConfiguration.stepperXDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) == pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while ((limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
+
+//	while ((xSemaphoreTake(limitSwitchSignal, 1)) == pdTRUE) {
 		stepPinX.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinX.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 	}
 	for (int i = 0; i < MARGIN; i++) {
 		stepPinX.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinX.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 	}
 
 	// Move to Negative direction - Counting
-	ITM_write("X- dir\r\n");
+	ITM_write("X- dir");
 	dirPinX.write(!PlotterConfiguration.stepperXDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) != pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while (!(limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
 		stepPinX.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinX.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 		maxPos++;
 	}
 	// X- switch reached
@@ -134,19 +139,21 @@ void InitXAxis() {
 	// Move away from switch
 	ITM_write(".\r\n");
 	dirPinX.write(PlotterConfiguration.stepperXDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) == pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while ((limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
 		stepPinX.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinX.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 		maxPos--;
 	}
 	for (int i = 0; i < MARGIN; i++) {
 		stepPinX.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinX.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 		maxPos--;
 	}
 	// Head is at 0 position
@@ -157,20 +164,23 @@ void InitXAxis() {
 
 // Init Y-axis
 void InitYAxis() {
-	DigitalIoPin stepPinY(0, 24, DigitalIoPin::output, false);	// D8 - P0.24
-	DigitalIoPin dirPinY(1, 0, DigitalIoPin::output, false);	// D9 - P1.0
+	int wait = 1;
+	uint32_t t = 1;
+	DigitalIoPin stepPinY(0, 27, DigitalIoPin::output, false);	// D10 - P0.27
+	DigitalIoPin dirPinY(0, 28, DigitalIoPin::output, false);	// D11 - P0.28
 
 	int32_t maxPos = 0;
 
 	// Move to Positive direction - No counting
-	ITM_write("Y+ dir\r\n");
+	ITM_write("Y+ dir");
 	dirPinY.write(PlotterConfiguration.stepperYDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) != pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while (!(limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
 		stepPinY.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+		//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinY.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 	}
 	// Y+ switch reached
 	ITM_write(".");
@@ -186,29 +196,32 @@ void InitYAxis() {
 	// Move away from switch
 	ITM_write(".\r\n");
 	dirPinY.write(!PlotterConfiguration.stepperYDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) == pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while ((limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
 		stepPinY.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+		//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinY.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 	}
 	for (int i = 0; i < MARGIN; i++) {
 		stepPinY.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+		//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinY.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 	}
 
 	// Move to Negative direction - Counting
-	ITM_write("Y- dir\r\n");
+	ITM_write("Y- dir");
 	dirPinY.write(!PlotterConfiguration.stepperYDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) != pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while (!(limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
 		stepPinY.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+		//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinY.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 		maxPos++;
 	}
 	// Y- switch reached
@@ -225,19 +238,21 @@ void InitYAxis() {
 	// Move away from switch
 	ITM_write(".\r\n");
 	dirPinY.write(PlotterConfiguration.stepperYDir);
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) == pdTRUE) {
+//	xSemaphoreTake(limitSwitchSignal, 0);
+	while ((limit1.read() || limit2.read() || limit3.read() || limit4.read())) {
 		stepPinY.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+		//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinY.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 		maxPos--;
 	}
 	for (int i = 0; i < MARGIN; i++) {
 		stepPinY.write(TRUE);
-		vTaskDelay(1);
+		for (int j = 0; j < 72; j++) {t = j << 1;}
+		//		vTaskDelay(pdMS_TO_TICKS(wait));
 		stepPinY.write(FALSE);
-		vTaskDelay(1);
+		vTaskDelay(pdMS_TO_TICKS(wait));
 		maxPos--;
 	}
 	// Head is at 0 position
@@ -246,10 +261,18 @@ void InitYAxis() {
 	MaxYAxisTick = maxPos;
 }
 
-/*
- * void InitPlotter()
- * @brief Set up plotter initial position and find limit switches
+/**
+ * Limits .cpp
+ * <pre> void InitPlotter();
  *
+ * InitPlotter: Initialize plotter hardware
+ * Locate limit switches
+ * Measure X/Y axes distance
+ * Calculate conversion ratio
+ *
+ * @brief	Initialize plotter hardware
+ *
+ * @return    Nothing, result written to global variables
  */
 void InitPlotter() {
 
@@ -269,8 +292,8 @@ void InitPlotter() {
 
 	ITM_write("Waiting for open limit switches...\r\n");
 
-	xSemaphoreTake(limitSwitchSignal, 0);
-	while ((xSemaphoreTake(limitSwitchSignal, 0)) == pdTRUE) {	// Wait for limit switches to open
+	//xSemaphoreTake(limitSwitchSignal, 0);
+	while ((limit1.read() || limit2.read() || limit3.read() || limit4.read())) {// Wait for limit switches to open
 	}
 
 	ITM_write("Init plotter...\r\n");

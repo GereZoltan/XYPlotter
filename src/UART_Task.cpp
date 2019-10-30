@@ -61,8 +61,8 @@ void UARTReaderTask(void *pvParameters) {
 
 	while (1) {
 		readCharCount = USB_receive((uint8_t *) rtext, RCV_BUFSIZE);		// Function blocks until data is available.
-		rtext[readCharCount] = '\0';
-		xQueueSend(inputQueue, (void *) rtext, portMAX_DELAY);
+		rtext[readCharCount] = '\0';										// mDraw strings end with '\n'
+		xQueueSend(inputQueue, (void *) rtext, portMAX_DELAY);				// Add '\0' to library string functions work properly
 //		ITM_write("UART RECEIVE: ");
 //		ITM_write(rtext);
 //		ITM_write("\r\n");
